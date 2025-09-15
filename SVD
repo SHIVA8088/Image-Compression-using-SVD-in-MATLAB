@@ -1,0 +1,67 @@
+clc
+clear all
+function [U, S, V] = custom_svd(A)
+    % Step 1: Compute A' * A and A * A'
+    ATA = A' * A;
+    AAT = A * A';
+
+    % Step 2: Find the eigenvalues and eigenvectors
+    [V, D] = eig(ATA);  % Eigen decomposition of A' * A
+    [U, ~] = eig(AAT);  % Eigen decomposition of A * A'
+
+    % Step 3: Sort eigenvalues in descending order and adjust U, V
+    [sorted_eigenvalues, idx] = sort(diag(D), 'descend');
+    V = V(:, idx);  % Right singular vectors
+    U = U(:, idx);  % Left singular vectors, reordered to match sorted eigenvalues
+
+    % Step 4: Compute the singular values
+    singular_values = sqrt(sorted_eigenvalues);
+    S = diag(singular_values);
+
+    % Adjust dimensions of S to match A if necessary
+    [m, n] = size(A);
+    if m > n
+        S = [S; zeros(m - n, n)];
+    elseif n > m
+        S = [S, zeros(m, n - m)];
+    end
+end
+img = imread('kanthan2019.jpg'); 
+img=imresize(img,[3000, 3000],'bicubic');
+img = rgb2gray(img); 
+img = double(img); 
+[m, n] = size(img);
+[U, S, V] = custom_svd(img);
+rangek = 0:20:100; 
+snr = zeros(size(rangek)); 
+percepq = zeros(size(rangek)); 
+for i = 1:length(rangek)
+    k = rangek(i);
+    S_k = S;
+    S_k(k+1:end, k+1:end) = 0;
+    img_k = U * S_k * V';
+    signal_power = sum(sum(img.^2));
+    noise_power = sum(sum((img - img_k).^2));
+    snr(i) = 10 * log10(signal_power / noise_power);
+    figure;
+    imshow(uint8(img_k));
+    title(['Reconstructed Image with k = ', num2str(k)]);
+    percepq(i) = input(['Rate perceptual quality for k = ', num2str(k), ' (1-5): ']);
+    close;
+end
+figure;
+imshow(uint8(img));
+title(['Actual Image']);
+figure;
+imshow(uint8(img_k));
+title(['Reconstructed Image with k = ', num2str(k)]);
+figure;
+plot(rangek, snr, '-o');
+xlabel('k (Number of Singular Values Used)');
+ylabel('Average SNR (dB)');
+title('SNR vs k');
+figure;
+plot(rangek, percepq, '-o');
+xlabel('k (Number of Singular Values Used)');
+ylabel('Average Perceptual Quality');
+title('Perceptual Quality vs k');
